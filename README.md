@@ -17,10 +17,10 @@ Open the command line and enter the directory Kafka (wherever you have the appli
 bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic input-stream --partitions 1 --replication-factor 1
 bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic output-stream --partitions 1 --replication-factor 1
 ```
-This command assumes that Kafka is running on localhost and is listening at the port 9092. You can change the argument for bootstrap server to a suitable location if the case is different for you.
+This command assumes that Kafka is running on localhost and is listening at the port 9092. You can change the argument for bootstrap server to a suitable URI if the case is different for you.
 
 **STEP 3 :**
-Now we need to setup Google Pub/Sub, and its topics and subscribers.
+Now we need to setup Google Pub/Sub, it's topics and subscribers.
 A GCP Service Account and private key are needed to access the Pub/Sub service from a Python application.
 The full list of your service accounts can be accessed [here](https://console.cloud.google.com/iam-admin/serviceaccounts) and a new service account can be added using this [link](https://console.cloud.google.com/iam-admin/serviceaccounts/create). Give your account a name and id —  both can be the same but the id must be unique.
 
@@ -31,12 +31,12 @@ Next, we need to generate a private key that our Python application will use whe
 
 Use the Add Key button to add a new JSON key.
 
-Clicking Create should download the private key file to your default Downloads directory. If you open the file you should see a JSON dictionary. Add this JSON file to the project folder. It contains credentials for creating an authorised connection to Google PubSub.
+Clicking Create should download the private key file to your default Downloads directory. If we open the file we should see a JSON dictionary. Add this JSON file to the project folder. It contains credentials for creating an authorised connection to Google PubSub.
 
 **STEP 4 :**
-Before we can push/pull data from Pub/Sub we need to create a topic. You can see all your active topics [here](https://console.cloud.google.com/cloudpubsub/topic/list). Create new topics, with the names 'input-stream' and 'output-stream', and LEAVE THE DEFAULT SUBSCRIPTION OPTION CHECKED. Your default subscriptions will have the name of your topic with a -sub suffix.
+Before we can push/pull data from Pub/Sub we need to create a topic. You can see all your active topics [here](https://console.cloud.google.com/cloudpubsub/topic/list). Create new topics, with the names 'input-stream' and 'output-stream', and LEAVE THE DEFAULT SUBSCRIPTION OPTION CHECKED. Your default subscriptions will have the name of your topic with a "-sub" suffix.
 
-Please take note of your Project ID and the name of your JSON file downloaded in step 3. You can find the id on the Pub/Sub [list page](https://console.cloud.google.com/cloudpubsub/topic/list). It would be the value between projects and topics - projects/{Project ID}/topics/...
+Please take note of your Project ID and the name of our JSON file downloaded in step 3. You can find the Project ID on the Pub/Sub [list page](https://console.cloud.google.com/cloudpubsub/topic/list). It would be the value between projects and topics - projects/{Project ID}/topics/...
 
 **STEP 5 :**
 We have completed the required setup and now we can go ahead with firing the code up!
@@ -73,7 +73,7 @@ python3 consumer_output.py Google_Pub_Sub ${JSON file} ${Project ID}
 
 The CLI 1 command loads the test data from Fashion MNIST (10000 samples) and sends a serialized numpy array batch of 40 images every 5 seconds to the message broker of choice in the topic 'input-stream'.
 
-The CLI 2 command consumes the data sent by the producer in CLI 1 in 'input-stream', and sends the data to the model for inference. This model is loaded from the file model.h5 that you can find in the project directory. The model gives out a list of 40 results corresponding to the 40 inputs sent at a time and this list is sent as a serialized object to the topic 'output-stream'.
+The CLI 2 command consumes the data sent by the producer in CLI 1 in 'input-stream', and sends the data to the model for inference. This model is loaded from the file model.h5 that you can find in the project directory. It gives out a list of 40 results corresponding to the 40 input images sent at a time and this list is sent as a serialized object to the topic 'output-stream'.
 
 The CLI 3 command consumes data incoming in the topic 'output-stream' and prints the same in the console. Theoretically a MongoDB instance can be initiated and the data incoming here can be sent to a collection in the database also.
 
@@ -92,8 +92,12 @@ python3 train_model.py ${epochs:int} ${model_name:str}
 In order to test the newly created model on the data streaming application, rename it to model.h5 and you would be good to go.
 
 **FEW KEY THINGS TO NOTE :**
-1. While training the image classifier model I was able to get the accuracy up to 93% using the Google Colab Environment. I later tried training the same model with the same data on my local Mac machine and wasn't able to exceed 10% accuracy. I suspect this happened because of some differences in how CPU and GPU perform but am not sure if that is the main reason for it.
+1. While training the image classifier model I was able to get the accuracy up to 93% in the Google Colab Environment. I later tried training that model with the same data on my local MacOS machine and wasn't able to exceed 10% accuracy. I suspect this is happening because of some differences in how CPU and GPU perform but am not sure if that is the main reason for it. The model that I have uploaded here is the 93% accurate one.
 
 2. As of now in this application the input and output streams have to be sent on the same broker in a single runtime. Surely slight tweaks in the code can give the flexibility of choosing different brokers for input and output streams as well.
 
 3. It is important to select the check default subscription option in Google Pub/Sub as the code has been written in a manner to use the subscription named '${Topic}-sub' for any topic created in Google Pub/Sub. This dependency can also be eliminated if we use a database for managing topics and subscriptions at a large scale or maybe another algorithm for correlation between the topic and subscription names.
+
+4. Security strengthening for the application can be done by restricting the IP list that the broker is allowed to consume data from and produce data to.
+
+5. The Google Pub Sub consumer instances by default will deactive in 300 seconds. For keeping the code simple, I haven't parameterized this argument, but it is surely possible to do so.
