@@ -114,7 +114,7 @@ class Broker:
                 try:
                     # When `timeout` is not set, result() will block indefinitely,
                     # unless an exception is encountered first.
-                    consumption = streaming_pull_future.result(timeout=90)
+                    consumption = streaming_pull_future.result(timeout=300)
                 except TimeoutError:
                     streaming_pull_future.cancel()
 
