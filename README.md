@@ -100,4 +100,4 @@ In order to test the newly created model on the data streaming application, rena
 
 4. Security strengthening for the application can be done by restricting the IP list that the broker is allowed to consume data from and produce data to.
 
-5. The Google Pub Sub consumer instances by default will deactive in 300 seconds. For keeping the code simple, I haven't parameterized this argument, but it is surely possible to do so.
+5. The Google Pub Sub consumer instances by default will deactive in 300 seconds. And the Kafka Consumer instances will deactivate if they are inactive for more than 90 seconds. To keep the code simple, I haven't parameterized this argument, but it is surely possible to do so.
