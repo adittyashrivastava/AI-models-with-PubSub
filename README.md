@@ -92,7 +92,7 @@ python3 train_model.py ${epochs:int} ${model_name:str}
 In order to test the newly created model on the data streaming application, rename it to model.h5 and you would be good to go.
 
 **FEW KEY THINGS TO NOTE :**
-1. While training the image classifier model I was able to get the accuracy up to 93% in the Google Colab Environment. I later tried training that model with the same data on my local MacOS machine and wasn't able to exceed 10% accuracy. I suspect this is happening because of some differences in how CPU and GPU perform but am not sure if that is the main reason for it. The model that I have uploaded here is the 93% accurate one.
+1. While training the image classifier model I was able to get the accuracy up to 93% in the Google Colab Environment. I later tried training that model with the same data on my local MacOS machine and wasn't able to exceed 10% accuracy. I suspect this is happening because of the differences in how a CPU and GPU performs. The model that I have uploaded here is the 93% accurate one.
 
 2. As of now in this application the input and output streams have to be sent on the same broker in a single runtime. Surely slight tweaks in the code can give the flexibility of choosing different brokers for input and output streams as well.
 
