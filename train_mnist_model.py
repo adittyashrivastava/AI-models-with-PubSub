@@ -2,8 +2,9 @@ import sys
 import tensorflow as tf
 from model_functions import train_and_save_model
 
-fashion_mnist = tf.keras.datasets.fashion_mnist
-(x_train, y_train), _ = fashion_mnist.load_data()
+# Load MNIST digit dataset
+mnist = tf.keras.datasets.mnist
+(x_train, y_train), _ = mnist.load_data()
 
 if __name__=='__main__':
     epochs = int(sys.argv[1])

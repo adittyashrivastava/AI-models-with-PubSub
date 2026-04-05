@@ -85,11 +85,25 @@ The CLI 3 command consumes data incoming in the topic 'output-stream' and prints
 
 3. model_functions.py - It has basic model based functions to train a model and get predictions from a model saved at a particular path.
 
-4. train_model.py - Can be used to train a new_model having the same architecture on a different dataset. Slight changes will have to be made to the code to load the new dataset into it. After making the changes, following command can be run to generate a new model from the command line after navigating to project folder -
+4. train_model.py - Can be used to train a new_model having the same architecture on the Fashion MNIST dataset. Following command can be run to generate a new model from the command line after navigating to project folder -
 ```
 python3 train_model.py ${epochs:int} ${model_name:str}
 ```
 In order to test the newly created model on the data streaming application, rename it to model.h5 and you would be good to go.
+
+5. train_mnist_model.py - Can be used to train a new model on the MNIST digit dataset using the same CNN architecture. Following command can be run to train a MNIST digit classification model:
+```
+python3 train_mnist_model.py ${epochs:int} ${model_name:str}
+```
+For example: `python3 train_mnist_model.py 10 mnist_model.h5`
+This will train a model for 10 epochs and save it as 'mnist_model.h5'. To use this model in the streaming application, rename it to model.h5.
+
+6. switch_models.py - A utility script to easily switch between different trained models. Usage:
+```
+python3 switch_models.py ${model_name}
+```
+For example: `python3 switch_models.py mnist_model.h5`
+This will backup the current model.h5 as model_backup.h5 and copy the specified model to model.h5.
 
 **FEW KEY THINGS TO NOTE :**
 1. While training the image classifier model I was able to get the accuracy up to 93% in the Google Colab Environment. I later tried training that model with the same data on my local MacOS machine and wasn't able to exceed 10% accuracy. I suspect this is happening because of the differences in how a CPU and GPU performs. The model that I have uploaded here is the 93% accurate one.
