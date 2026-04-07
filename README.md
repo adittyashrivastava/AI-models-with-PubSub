@@ -8,6 +8,13 @@ This project entails -
 4. Developing a CNN based image classifier trained on the Fashion MNIST Dataset.
 5. Creation of data pipelines for producer input, consumer input, producer output and consumer output data streams.
 
+**IMPROVED ARCHITECTURE :**
+The project now features an improved object-oriented design with:
+- Abstract base classes for Producers, Consumers, and Serializers
+- Concrete implementations for Kafka and Google Pub/Sub
+- Clean separation of concerns and better maintainability
+- See [DESIGN.md](DESIGN.md) for detailed architecture documentation
+
 **STEP 1 :**
 First we will setup Zookeeper and Kafka on the localhost, and get them up and running. You can skip this step if you have them up and running already. Find the steps to install Zookeeper and Kafka [here](https://www.tutorialspoint.com/apache_kafka/apache_kafka_installation_steps.htm) and have them up and running.
 
@@ -22,7 +29,7 @@ This command assumes that Kafka is running on localhost and is listening at the 
 **STEP 3 :**
 Now we need to setup Google Pub/Sub, it's topics and subscribers.
 A GCP Service Account and private key are needed to access the Pub/Sub service from a Python application.
-The full list of your service accounts can be accessed [here](https://console.cloud.google.com/iam-admin/serviceaccounts) and a new service account can be added using this [link](https://console.cloud.google.com/iam-admin/serviceaccounts/create). Give your account a name and id —  both can be the same but the id must be unique.
+The full list of your service accounts can be accessed [here](https://console.cloud.google.com/iam-admin/serviceaccounts) and a new service account can be added using this [link](https://console.cloud.google.com/iam-admin/serviceaccounts/create). Give your account a name and id —  both can be the same but the id must be unique.
 
 Click create and add the Pub/Sub Publisher and Pub/Sub Subscriber roles to ensure that this account can both consume data from and publish data to your Pub/Sub topic(s).
 
@@ -41,34 +48,36 @@ Please take note of your Project ID and the name of our JSON file downloaded in 
 **STEP 5 :**
 We have completed the required setup and now we can go ahead with firing the code up!
 Open up 3 new command line interfaces and navigate to the project directory in each of them. I will be referring to them as CLI 1, 2 and 3.
-If you want to run the application using Apache Kafka as the message broker, then run the following commands on your respective CLIs -
+
+The improved design now uses environment variables for configuration. Set these before running:
+```bash
+export BROKER_TYPE=kafka  # or 'pubsub'
+export INPUT_TOPIC=input-stream
+export OUTPUT_TOPIC=output-stream
+
+# For Kafka:
+export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+export KAFKA_GROUP_ID=my-group
+
+# For Google Pub/Sub:
+export GOOGLE_CLOUD_PROJECT=your-project-id
+export GOOGLE_APPLICATION_CREDENTIALS=path/to/your/credentials.json
+export PUBSUB_SUBSCRIPTION=input-stream-sub
+```
+
+Then run the applications:
 
 CLI 1:
 ```
-python3 producer_input.py Kafka
+python3 producer_input.py
 ```
 CLI 2:
 ```
-python3 consumer_input_and_producer_output.py Kafka
+python3 consumer_input_and_producer_output.py
 ```
 CLI 3:
 ```
-python3 consumer_output.py Kafka
-```
-
-If your choice of broker is Google Pub/Sub, take note of the name of the JSON file (for eg:'app_creds.json') and the Project ID as found in step 4, and run the following commands on your respective CLIs -
-
-CLI 1:
-```
-python3 producer_input.py Google_Pub_Sub ${JSON file} ${Project ID}
-```
-CLI 2:
-```
-python3 consumer_input_and_producer_output.py Google_Pub_Sub ${JSON file} ${Project ID}
-```
-CLI 3:
-```
-python3 consumer_output.py Google_Pub_Sub ${JSON file} ${Project ID}
+python3 consumer_output.py
 ```
 
 The CLI 1 command loads the test data from Fashion MNIST (10000 samples) and sends a serialized numpy array batch of 40 images every 5 seconds to the message broker of choice in the topic 'input-stream'.
@@ -79,13 +88,15 @@ The CLI 3 command consumes data incoming in the topic 'output-stream' and prints
 
 **FUNCTIONAL FILES IN THE PROJECT :**
 
-1. brokers.py - This file contains a class 'Broker' that would entail the major operations like initiating instances of producers and consumers on our choice of broker, or producing and consuming data from the initiated instances. This class has been used in the 3 main files - producer_input.py, consumer_input_and_producer_output.py and consumer_output.py
+1. **brokers.py** - Contains the `Broker` class that provides a unified interface for creating producers and consumers for different message brokers. It handles environment configuration and broker-specific setup.
 
-2. numpy_converters.py - To send numpy arrays in a seamless manner of JSON format using a message broker it was first required to create a class inherited from the JSONEncoder to support transport of these arrays. The two functions serialize and deserialize are used to create and deduce JSON readable objects of numpy arrays.
+2. **messaging.py** - Contains abstract base classes (`Producer`, `Consumer`) and concrete implementations for Kafka and Google Pub/Sub. This provides a clean abstraction layer for message passing operations.
 
-3. model_functions.py - It has basic model based functions to train a model and get predictions from a model saved at a particular path.
+3. **serializers.py** - Contains the `Serializer` abstract base class and concrete implementations (`NumpySerializer`, `JSONSerializer`) for handling data serialization/deserialization. Replaces the old numpy_converters.py with a more extensible design.
 
-4. train_model.py - Can be used to train a new_model having the same architecture on a different dataset. Slight changes will have to be made to the code to load the new dataset into it. After making the changes, following command can be run to generate a new model from the command line after navigating to project folder -
+4. **model_functions.py** - Contains basic model-based functions to train a model and get predictions from a model saved at a particular path.
+
+5. **train_model.py** - Can be used to train a new_model having the same architecture on a different dataset. Slight changes will have to be made to the code to load the new dataset into it. After making the changes, following command can be run to generate a new model from the command line after navigating to project folder -
 ```
 python3 train_model.py ${epochs:int} ${model_name:str}
 ```
