@@ -7,5 +7,5 @@ fashion_mnist = tf.keras.datasets.fashion_mnist
 
 if __name__=='__main__':
     epochs = int(sys.argv[1])
-    model_name = int(sys.argv[2])
+    model_name = sys.argv[2]
     train_and_save_model(x_train, y_train, epochs, model_name)
