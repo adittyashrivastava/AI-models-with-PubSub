@@ -1,5 +1,10 @@
 # Image Classifier with Real-time Streaming using Apache Kafka and Google Pub/Sub
 
+![Python](https://img.shields.io/badge/python-3.x-blue.svg)
+![TensorFlow](https://img.shields.io/badge/tensorflow-2.3.1-orange.svg)
+![Kafka](https://img.shields.io/badge/kafka-compatible-green.svg)
+![Google Cloud](https://img.shields.io/badge/google--cloud-pubsub-blue.svg)
+
 ## Table of Contents
 - [Overview](#overview)
 - [Architecture](#architecture)
