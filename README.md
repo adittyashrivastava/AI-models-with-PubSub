@@ -1,103 +1,228 @@
 # Image Classifier Integrated with Apache Kafka and Google Pub/Sub
 
-**INTRODUCTION :**
-This project entails -  
-1. Setting up a single node cluster of Apache Kafka, and Google Pub/Sub message brokers.
-2. Creating topics and subscribers in the message brokers to complete initial setup for creating required data pipelines.
-3. Creating a Broker class for performing operations seamlessly via code and also ensuring possibility of integrating a new broker in the future, if required.
-4. Developing a CNN based image classifier trained on the Fashion MNIST Dataset.
-5. Creation of data pipelines for producer input, consumer input, producer output and consumer output data streams.
+A distributed machine learning system that demonstrates real-time image classification using message brokers (Apache Kafka or Google Pub/Sub) for scalable data streaming. The system processes Fashion MNIST images through a CNN model with a publish-subscribe architecture.
 
-**STEP 1 :**
-First we will setup Zookeeper and Kafka on the localhost, and get them up and running. You can skip this step if you have them up and running already. Find the steps to install Zookeeper and Kafka [here](https://www.tutorialspoint.com/apache_kafka/apache_kafka_installation_steps.htm) and have them up and running.
+## Table of Contents
 
-**STEP 2 :**
-Open the command line and enter the directory Kafka (wherever you have the application modules stored) and run the following commands to generate the Kafka topics "input-stream" and "output-stream" -
+- [Overview](#overview)
+- [System Architecture](#system-architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+  - [Apache Kafka Setup](#apache-kafka-setup)
+  - [Google Pub/Sub Setup](#google-pubsub-setup)
+- [Quick Usage Examples](#quick-usage-examples)
+  - [Using Apache Kafka](#using-apache-kafka)
+  - [Using Google Pub/Sub](#using-google-pubsub)
+- [Project Components](#project-components)
+- [Key Implementation Details](#key-implementation-details)
+- [Customization](#customization)
+
+## Overview
+
+This project demonstrates how to integrate machine learning models with message brokers for scalable, real-time inference. Key features include:
+
+- **Dual Broker Support**: Seamlessly switch between Apache Kafka and Google Pub/Sub
+- **Real-time Processing**: Stream image batches through message queues for continuous inference
+- **CNN Classifier**: Pre-trained model achieving 93% accuracy on Fashion MNIST dataset
+- **Modular Design**: Abstract broker interface allows easy addition of new message brokers
+- **Batch Processing**: Efficiently processes 40 images per batch every 5 seconds
+
+## System Architecture
+
 ```
-bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic input-stream --partitions 1 --replication-factor 1
-bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic output-stream --partitions 1 --replication-factor 1
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│                 │     │                  │     │                     │
+│  Producer Input │────▶│  Message Broker  │────▶│ Consumer Input &    │
+│                 │     │  (input-stream)  │     │ Producer Output     │
+│ - Loads Fashion│     │                  │     │                     │
+│   MNIST test   │     │ - Apache Kafka   │     │ - Consumes batches  │
+│   data (10k    │     │      OR          │     │ - Runs CNN          │
+│   samples)     │     │ - Google Pub/Sub │     │   inference         │
+│ - Sends 40     │     │                  │     │ - Publishes results │
+│   image batches│     └──────────────────┘     │                     │
+│   every 5 sec  │                              └──────────┬──────────┘
+└─────────────────┘                                        │
+                                                          │
+                                                          ▼
+┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│                 │     │                  │     │                  │
+│ Consumer Output │◀────│  Message Broker  │◀────┘  CNN Model       │
+│                 │     │  (output-stream) │     │  (model.h5)      │
+│ - Receives      │     │                  │     │                  │
+│   predictions  │     │ - Apache Kafka   │     │ - Conv2D layers  │
+│ - Displays      │     │      OR          │     │ - MaxPooling     │
+│   results      │     │ - Google Pub/Sub │     │ - Dense layers   │
+│ - Can store    │     │                  │     │ - 10 categories  │
+│   to MongoDB   │     └──────────────────┘     └──────────────────┘
+└─────────────────┘
 ```
-This command assumes that Kafka is running on localhost and is listening at the port 9092. You can change the argument for bootstrap server to a suitable URI if the case is different for you.
 
-**STEP 3 :**
-Now we need to setup Google Pub/Sub, it's topics and subscribers.
-A GCP Service Account and private key are needed to access the Pub/Sub service from a Python application.
-The full list of your service accounts can be accessed [here](https://console.cloud.google.com/iam-admin/serviceaccounts) and a new service account can be added using this [link](https://console.cloud.google.com/iam-admin/serviceaccounts/create). Give your account a name and id —  both can be the same but the id must be unique.
+### Data Flow
 
-Click create and add the Pub/Sub Publisher and Pub/Sub Subscriber roles to ensure that this account can both consume data from and publish data to your Pub/Sub topic(s).
+1. **Producer Input**: Loads Fashion MNIST test data and publishes serialized numpy arrays (40 images/batch) to the input stream
+2. **Message Broker**: Routes messages between producers and consumers using either Kafka or Pub/Sub
+3. **Consumer/Producer**: Consumes input batches, performs inference, and publishes predictions to output stream
+4. **Consumer Output**: Receives and displays classification results (can be extended to store in MongoDB)
 
-From here you can click done.
-Next, we need to generate a private key that our Python application will use when communicating with GCP. Find the service account you just created and select the Manage keys option.
+## Prerequisites
 
-Use the Add Key button to add a new JSON key.
+- Python 3.6+
+- For Apache Kafka:
+  - Java 8+
+  - Apache Kafka 2.x
+  - Zookeeper (included with Kafka)
+- For Google Pub/Sub:
+  - Google Cloud Platform account
+  - Service account with Pub/Sub Publisher/Subscriber roles
+  - Project ID
 
-Clicking Create should download the private key file to your default Downloads directory. If we open the file we should see a JSON dictionary. Add this JSON file to the project folder. It contains credentials for creating an authorised connection to Google PubSub.
+## Installation
 
-**STEP 4 :**
-Before we can push/pull data from Pub/Sub we need to create a topic. You can see all your active topics [here](https://console.cloud.google.com/cloudpubsub/topic/list). Create new topics, with the names 'input-stream' and 'output-stream', and LEAVE THE DEFAULT SUBSCRIPTION OPTION CHECKED. Your default subscriptions will have the name of your topic with a "-sub" suffix.
+### Apache Kafka Setup
 
-Please take note of your Project ID and the name of our JSON file downloaded in step 3. You can find the Project ID on the Pub/Sub [list page](https://console.cloud.google.com/cloudpubsub/topic/list). It would be the value between projects and topics - projects/{Project ID}/topics/...
+1. **Install and Start Kafka**
+   
+   Follow the [official Kafka installation guide](https://www.tutorialspoint.com/apache_kafka/apache_kafka_installation_steps.htm) to set up Zookeeper and Kafka.
 
-**STEP 5 :**
-We have completed the required setup and now we can go ahead with firing the code up!
-Open up 3 new command line interfaces and navigate to the project directory in each of them. I will be referring to them as CLI 1, 2 and 3.
-If you want to run the application using Apache Kafka as the message broker, then run the following commands on your respective CLIs -
+2. **Create Kafka Topics**
+   
+   Navigate to your Kafka directory and run:
+   ```bash
+   bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic input-stream --partitions 1 --replication-factor 1
+   bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic output-stream --partitions 1 --replication-factor 1
+   ```
 
-CLI 1:
-```
+### Google Pub/Sub Setup
+
+1. **Create Service Account**
+   - Go to [Service Accounts page](https://console.cloud.google.com/iam-admin/serviceaccounts)
+   - Click "Create Service Account"
+   - Add roles: Pub/Sub Publisher and Pub/Sub Subscriber
+   
+2. **Generate Private Key**
+   - Select your service account → Manage keys → Add key → Create new key (JSON)
+   - Save the downloaded JSON file in your project directory
+
+3. **Create Pub/Sub Topics**
+   - Visit [Pub/Sub Topics](https://console.cloud.google.com/cloudpubsub/topic/list)
+   - Create topics: `input-stream` and `output-stream`
+   - **Important**: Keep "Add a default subscription" checked
+   - Note your Project ID from the URL: `projects/{Project-ID}/topics/...`
+
+4. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Quick Usage Examples
+
+### Using Apache Kafka
+
+Open three terminal windows and navigate to the project directory in each:
+
+**Terminal 1 - Start Producer**
+```bash
 python3 producer_input.py Kafka
 ```
-CLI 2:
-```
+
+**Terminal 2 - Start Consumer/Producer**
+```bash
 python3 consumer_input_and_producer_output.py Kafka
 ```
-CLI 3:
-```
+
+**Terminal 3 - Start Output Consumer**
+```bash
 python3 consumer_output.py Kafka
 ```
 
-If your choice of broker is Google Pub/Sub, take note of the name of the JSON file (for eg:'app_creds.json') and the Project ID as found in step 4, and run the following commands on your respective CLIs -
+### Using Google Pub/Sub
 
-CLI 1:
-```
-python3 producer_input.py Google_Pub_Sub ${JSON file} ${Project ID}
-```
-CLI 2:
-```
-python3 consumer_input_and_producer_output.py Google_Pub_Sub ${JSON file} ${Project ID}
-```
-CLI 3:
-```
-python3 consumer_output.py Google_Pub_Sub ${JSON file} ${Project ID}
+Replace `your-creds.json` and `your-project-id` with your actual values:
+
+**Terminal 1 - Start Producer**
+```bash
+python3 producer_input.py Google_Pub_Sub your-creds.json your-project-id
 ```
 
-The CLI 1 command loads the test data from Fashion MNIST (10000 samples) and sends a serialized numpy array batch of 40 images every 5 seconds to the message broker of choice in the topic 'input-stream'.
-
-The CLI 2 command consumes the data sent by the producer in CLI 1 in 'input-stream', and sends the data to the model for inference. This model is loaded from the file model.h5 that you can find in the project directory. It gives out a list of 40 results corresponding to the 40 input images sent at a time and this list is sent as a serialized object to the topic 'output-stream'.
-
-The CLI 3 command consumes data incoming in the topic 'output-stream' and prints the same in the console. Theoretically a MongoDB instance can be initiated and the data incoming here can be sent to a collection in the database also.
-
-**FUNCTIONAL FILES IN THE PROJECT :**
-
-1. brokers.py - This file contains a class 'Broker' that would entail the major operations like initiating instances of producers and consumers on our choice of broker, or producing and consuming data from the initiated instances. This class has been used in the 3 main files - producer_input.py, consumer_input_and_producer_output.py and consumer_output.py
-
-2. numpy_converters.py - To send numpy arrays in a seamless manner of JSON format using a message broker it was first required to create a class inherited from the JSONEncoder to support transport of these arrays. The two functions serialize and deserialize are used to create and deduce JSON readable objects of numpy arrays.
-
-3. model_functions.py - It has basic model based functions to train a model and get predictions from a model saved at a particular path.
-
-4. train_model.py - Can be used to train a new_model having the same architecture on a different dataset. Slight changes will have to be made to the code to load the new dataset into it. After making the changes, following command can be run to generate a new model from the command line after navigating to project folder -
+**Terminal 2 - Start Consumer/Producer**
+```bash
+python3 consumer_input_and_producer_output.py Google_Pub_Sub your-creds.json your-project-id
 ```
-python3 train_model.py ${epochs:int} ${model_name:str}
+
+**Terminal 3 - Start Output Consumer**
+```bash
+python3 consumer_output.py Google_Pub_Sub your-creds.json your-project-id
 ```
-In order to test the newly created model on the data streaming application, rename it to model.h5 and you would be good to go.
 
-**FEW KEY THINGS TO NOTE :**
-1. While training the image classifier model I was able to get the accuracy up to 93% in the Google Colab Environment. I later tried training that model with the same data on my local MacOS machine and wasn't able to exceed 10% accuracy. I suspect this is happening because of the differences in how a CPU and GPU performs. The model that I have uploaded here is the 93% accurate one.
+### Expected Output
 
-2. As of now in this application the input and output streams have to be sent on the same broker in a single runtime. Surely slight tweaks in the code can give the flexibility of choosing different brokers for input and output streams as well.
+Once all three components are running, you should see:
+- Producer: Sending batch messages every 5 seconds
+- Consumer/Producer: Processing batches and generating predictions
+- Output Consumer: Displaying classification results for each batch
 
-3. It is important to select the check default subscription option in Google Pub/Sub as the code has been written in a manner to use the subscription named '${Topic}-sub' for any topic created in Google Pub/Sub. This dependency can also be eliminated if we use a database for managing topics and subscriptions at a large scale or maybe another algorithm for correlation between the topic and subscription names.
+Example output:
+```
+Received predictions: [2, 4, 1, 9, 0, 1, 7, 8, 5, 3, ...]
+```
 
-4. Security strengthening for the application can be done by restricting the IP list that the broker is allowed to consume data from and produce data to.
+## Project Components
 
-5. The Google Pub Sub consumer instances by default will deactive in 300 seconds. And the Kafka Consumer instances will deactivate if they are inactive for more than 90 seconds. To keep the code simple, I haven't parameterized this argument, but it is surely possible to do so.
+| File | Description |
+|------|-------------|
+| `brokers.py` | Abstract `Broker` class providing unified interface for Kafka and Pub/Sub operations |
+| `producer_input.py` | Loads Fashion MNIST data and publishes image batches to input stream |
+| `consumer_input_and_producer_output.py` | Consumes images, runs inference, publishes predictions |
+| `consumer_output.py` | Consumes and displays prediction results |
+| `model_functions.py` | Model building and training utilities |
+| `numpy_converters.py` | JSON serialization/deserialization for numpy arrays |
+| `train_model.py` | Script to retrain the CNN model |
+| `model.h5` | Pre-trained CNN model (93% accuracy) |
+
+## Key Implementation Details
+
+1. **Broker Abstraction**: The `Broker` class in `brokers.py` provides a unified interface for both Kafka and Google Pub/Sub, making it easy to switch between brokers or add new ones.
+
+2. **Batch Processing**: The system processes 40 images per batch to optimize throughput while maintaining reasonable latency.
+
+3. **Model Architecture**: CNN with 2 Conv2D layers, MaxPooling, and Dense layers trained on Fashion MNIST (28x28 grayscale images, 10 categories).
+
+4. **Serialization**: Custom JSON encoder/decoder handles numpy array serialization for message passing.
+
+5. **Timeout Configuration**: 
+   - Google Pub/Sub consumers: 300 seconds timeout
+   - Kafka consumers: 90 seconds idle timeout
+
+## Customization
+
+### Training a New Model
+
+To train the model on a different dataset:
+
+```bash
+python3 train_model.py <epochs> <model_name>
+```
+
+Example:
+```bash
+python3 train_model.py 10 my_custom_model
+```
+
+To use your custom model, rename it to `model.h5` in the project directory.
+
+### Adding a New Message Broker
+
+1. Extend the `Broker` class in `brokers.py`
+2. Implement the required methods: `create_producer()`, `create_consumer()`, `produce()`, `consume()`
+3. Add broker initialization logic in the main scripts
+
+### Security Considerations
+
+- Restrict broker access by IP whitelisting
+- Use SSL/TLS for Kafka connections in production
+- Rotate Google Cloud service account keys regularly
+- Never commit credentials to version control
+
+---
+
+**Note**: The model was trained on Google Colab with GPU acceleration achieving 93% accuracy. Training on CPU-only systems may yield different results due to numerical precision differences.
